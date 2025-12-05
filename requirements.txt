@@ -5,3 +5,4 @@ langchain-tavily
 pydantic
 openai
 tavily-python
+python-dotenv

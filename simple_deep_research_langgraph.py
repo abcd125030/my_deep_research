@@ -1,10 +1,10 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain.agents import create_react_agent
-from pydantic import BaseModel, Field
-from typing import List, Annotated, TypedDict, Literal, Union, Dict, Any
+from langgraph.prebuilt import create_react_agent
 from langchain_tavily import TavilySearch
 from langgraph.graph import StateGraph, END
+from pydantic import BaseModel, Field
+from typing import List, Annotated, TypedDict, Literal, Union, Dict, Any
 import os
 from dotenv import load_dotenv
 
@@ -74,7 +74,7 @@ llm = ChatOpenAI(
 # 使用TavilySearch搜索网页
 search_tool = TavilySearch(max_results=5, topic="general")
 # 创建并使用search_agent
-search_agent = create_react_agent(llm=llm, tools=[search_tool], prompt=search_template)
+search_agent = create_react_agent(model=llm, tools=[search_tool], prompt=search_template)
 
 # 定义用于保存write结果的第一个类
 class ReportData(BaseModel):
@@ -109,7 +109,7 @@ class ResearchState(TypedDict):
     query: str
     search_plan: Union[WebSearchPlan, None]
     search_results: Union[list, None]
-    report_content: Union[str, None]  # 修改状态键名称，避免与节点名称冲突
+    report_content: Union[str, None]
     status: str
 
 # 定义节点函数
@@ -142,35 +142,22 @@ def report_node(state: ResearchState) -> ResearchState:
     result = writer_chain.invoke({"query": final_query})
     return {"report_content": result.markdown_report, "status": "completed"}
 
-# 创建研究流程图
 def build_research_graph():
-    # 创建图
     workflow = StateGraph(ResearchState)
-    
-    # 添加节点
     workflow.add_node("plan", plan_node)
     workflow.add_node("search", search_node)
     workflow.add_node("report", report_node)
-    
-    # 设置边和流程
     workflow.add_edge("plan", "search")
     workflow.add_edge("search", "report")
     workflow.add_edge("report", END)
-    
-    # 设置入口节点
     workflow.set_entry_point("plan")
-    
-    # 编译图
     return workflow.compile()
 
 # 示例调用
 if __name__ == "__main__":
     query = "请问你对AI+教育有何看法?"
     
-    # 创建研究流程图
     research_graph = build_research_graph()
-    
-    # 执行研究流程
     result = research_graph.invoke({"query": query, "search_plan": None, "search_results": None, "report_content": None, "status": "start"})
     '''
     child_query: AI在教育中的应用
